@@ -56,6 +56,9 @@ class TapDataverse(Tap):
         Returns:
             A list of discovered streams.
         """
+
+        """The MetadataStream class is used only to get the list of other classes """
+        """It's a kind of dummy class that doesn't end up being synced but is used purely to generate the catalog """
         metadata = streams.MetadataStream(self)
         for record in metadata.get_records(None):
             print(record)
