@@ -6,6 +6,8 @@ from xml.etree import ElementTree as ET
 import sys
 from functools import cached_property
 from typing import Any, Callable, Iterable
+from singer_sdk import typing as th  # JSON Schema typing helpers
+
 
 import requests
 from singer_sdk.helpers.jsonpath import extract_jsonpath
@@ -138,11 +140,13 @@ class DataverseStream(RESTStream):
 
 
 class MetadataStream(DataverseStream):
-    """Accounts stream."""
+    """Metadata stream."""
 
     name = "metadata"
     path = "/api/data/v9.2/$metadata"
-
+    schema = th.PropertiesList(
+        th.Property("Name", th.StringType),
+    ).to_dict()
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
         """Parse the response and return an iterator of result records.
@@ -159,7 +163,7 @@ class MetadataStream(DataverseStream):
         data_service = tree.find("edmx:DataServices", NS)
         entities = data_service.find("edm:Schema", NS)
 
-        entity_def = []
+        entity_def = {}
         for elem in entities.findall("edm:EntityType", NS):
             # if an Entity doesn't have elements or a `Key` skip over it
             if len(elem) and elem.find("edm:Key", NS):
@@ -172,6 +176,6 @@ class MetadataStream(DataverseStream):
                     prop_type = prop.get("Type")
                     props.append({"LogicalName": prop_name, "PropertyType": prop_type})
 
-                entity_def.append({entity_name: {"Key": entity_key, "Properties": props}})
+                entity_def.update({entity_name: {"Key": entity_key, "Properties": props}})
 
         yield entity_def

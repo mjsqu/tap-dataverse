@@ -56,10 +56,11 @@ class TapDataverse(Tap):
         Returns:
             A list of discovered streams.
         """
-        print(self.config)
-        return [
-            streams.MetadataStream(self),
-        ]
+        metadata = streams.MetadataStream(self)
+        for record in metadata.get_records(None):
+            print(record)
+        
+        return []
 
 
 if __name__ == "__main__":
