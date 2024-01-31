@@ -13,6 +13,16 @@
             "python": "${command:python.interpreterPath}",
             // Set to true to debug third-party library code
             "justMyCode": false,
+        },
+        {
+            "name": "tap-dataverse env",
+            "type": "python",
+            "request": "launch",
+            "module": "tap_dataverse.tap",
+            "args": ["--config", "ENV"],
+            "python": "${command:python.interpreterPath}",
+            // Set to true to debug third-party library code
+            "justMyCode": false,
         }
     ]
 }
