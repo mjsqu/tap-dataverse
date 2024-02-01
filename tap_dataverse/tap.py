@@ -14,6 +14,7 @@ from tap_dataverse.streams import DataverseTableStream
 from tap_dataverse.client import DataverseStream
 from tap_dataverse.auth import DataverseAuthenticator
 
+
 class TapDataverse(Tap):
     """Dataverse tap class."""
 
@@ -55,14 +56,21 @@ class TapDataverse(Tap):
 
     config_jsonschema = tap_properties.to_dict()
 
- 
     def discover_streams(self) -> list[DataverseTableStream]:
         """Return a list of discovered streams.
 
         Returns:
             A list of discovered streams.
         """
-
+        discovery_stream = DataverseStream(
+            tap=self,
+            name="discovery",
+            schema={"dummy": "dummy"},
+            path="api/data/v9.2/EntityDefinitions(LogicalName='cr1c7_datatypetesting')/Attributes",
+        )
+        r = discovery_stream.get_records(context=None)
+        for rec in r:
+            print(rec)
         streams = []
 
         for stream in self.config["streams"]:
@@ -71,12 +79,8 @@ class TapDataverse(Tap):
     def get_schema(self, logical_name: str) -> Any:
         """Retrieve the schema from the /api/v{}/EntitityDefinition(LogicalName={})/Attributes endpoint."""
         # https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/query-metadata-web-api#querying-entitymetadata-attributes
-        
-        
 
         pass
-
-    
 
 
 if __name__ == "__main__":

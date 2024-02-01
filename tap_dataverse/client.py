@@ -36,13 +36,16 @@ NS = {
 class DataverseStream(RESTStream):
     """Dataverse stream class."""
 
+    """This stream is not actually synced, it is used initially for discovery
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
-        return self.config["resource"]
+        return self.config["api_url"]
 
     records_jsonpath = "$[*]"  # Or override `parse_response`.
 
@@ -59,7 +62,7 @@ class DataverseStream(RESTStream):
         return DataverseAuthenticator.create_for_stream(
             self,
             auth_endpoint=f"https://login.microsoftonline.com/{self.config['tenant_id']}/oauth2/token",
-            oauth_scopes=f"{self.config['resource']}/.default",
+            oauth_scopes=f"{self.config['api_url']}/.default",
         )
 
     @property
@@ -139,6 +142,9 @@ class DataverseStream(RESTStream):
         """
         # TODO: Delete this method if not needed.
         return row
+
+    def discover_streams():
+        return []
 
 
 class MetadataStream(DataverseStream):
