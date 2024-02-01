@@ -36,10 +36,12 @@ NS = {
 class DataverseStream(RESTStream):
     """Dataverse stream class."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
-        # TODO: hardcode a value here, or retrieve it from self.config
         return self.config["resource"]
 
     records_jsonpath = "$[*]"  # Or override `parse_response`.

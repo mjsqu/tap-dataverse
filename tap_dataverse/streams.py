@@ -4,59 +4,50 @@ from __future__ import annotations
 
 import requests
 import sys
-import typing as t
+from typing import Any, Dict, Generator, Iterable, Optional, Union
 
 from singer_sdk import typing as th  # JSON Schema typing helpers
+from singer_sdk.helpers.jsonpath import extract_jsonpath
 
-from tap_dataverse.client import DataverseStream, MetadataStream
+from tap_dataverse.client import DataverseStream
+from tap_dataverse.auth import DataverseAuthenticator
 
 if sys.version_info >= (3, 9):
     import importlib.resources as importlib_resources
 else:
     import importlib_resources
 
+class DataverseTableStream(DataverseStream):
+    """Customised stream for any Dataverse Table."""
+    def __init__(
+        self,
+        tap: Any,
+        name: str,
+        records_path: str,
+        path: str,
+        schema: Optional[dict] = None,
+    ) -> None:
+        
+        super().__init__(tap=tap, name=tap.name, schema=schema)
 
-# TODO: Delete this is if not using json files for schema definition
-SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
-# TODO: - Override `UsersStream` and `GroupsStream` with your own stream definition.
-#       - Copy-paste as many times as needed to create multiple stream types.
+        self.name = name
+        self.path = path
+        self.records_path = records_path
+    
+    @property
+    def authenticator(self) -> DataverseAuthenticator:
+        return DataverseAuthenticator(stream=self)
 
+    def parse_response(self, response: requests.Response) -> Iterable[dict]:
+        """Parse the response and return an iterator of result rows.
 
-class UsersStream(DataverseStream):
-    """Define custom stream."""
+        Args:
+            response: required - the requests.Response given by the api call.
 
-    name = "users"
-    path = "/users"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    replication_key = None
-    # Optionally, you may also use `schema_filepath` in place of `schema`:
-    # schema_filepath = SCHEMAS_DIR / "users.json"  # noqa: ERA001
-    schema = th.PropertiesList(
-        th.Property("name", th.StringType),
-        th.Property(
-            "id",
-            th.StringType,
-            description="The user's system ID",
-        ),
-        th.Property(
-            "age",
-            th.IntegerType,
-            description="The user's age in years",
-        ),
-        th.Property(
-            "email",
-            th.StringType,
-            description="The user's email address",
-        ),
-        th.Property("street", th.StringType),
-        th.Property("city", th.StringType),
-        th.Property(
-            "state",
-            th.StringType,
-            description="State name in ISO 3166-2 format",
-        ),
-        th.Property("zip", th.StringType),
-    ).to_dict()
+        Yields:
+              Parsed records.
 
+        """
+        yield from extract_jsonpath(self.records_path, input=response.json())
 
 
