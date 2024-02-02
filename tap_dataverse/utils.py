@@ -1,7 +1,6 @@
 from singer_sdk import typing as th  # JSON schema typing helpers
 from singer_sdk.typing import JSONTypeHelper
 
-
 def attribute_type_to_jsonschema_type(attribute_type: str):
     """
     https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/reference/attributetypecode?view=dataverse-latest
@@ -44,7 +43,7 @@ def attribute_type_to_jsonschema_type(attribute_type: str):
         "State": th.StringType,
         "Status": th.StringType,
         "String": th.StringType,
-        "Uniqueidentifier": th.StringType,
+        "Uniqueidentifier": th.UUIDType,
         "CalendarRules": th.StringType,
         "Virtual": th.StringType,
         "BigInt": th.StringType,
@@ -52,39 +51,90 @@ def attribute_type_to_jsonschema_type(attribute_type: str):
         "EntityName": th.StringType,
     }
 
-    return mapping.get(attribute_type,th.StringType)
+    return mapping.get(attribute_type, th.StringType)
 
-def attribute_to_properties(attribute: dict) -> [th.Property]:
+
+def attribute_to_properties(attribute: dict) -> th.PropertiesList:
+    """
+    TODO: Handle this:
+    "_owningbusinessunit_value@OData.Community.Display.V1.FormattedValue": "ipmhadev",
+    "_owningbusinessunit_value@Microsoft.Dynamics.CRM.associatednavigationproperty": "owningbusinessunit",
+    "_owningbusinessunit_value@Microsoft.Dynamics.CRM.lookuplogicalname": "businessunit",
+    """
+    """
+    Special cases:
+        - Money - has an extra 'base' column
+        - UniqueIdentifier - is a uuid type
+    """
+
+    FORMATTED = [
+        "BigInt",
+        "DateTime",
+        "Decimal",
+        "Double",
+        "Integer",
+        "Money",
+        "Picklist",
+        "State",
+        "Status",
+    ]
+    FORMATTED_NAV_LKUP = ["Lookup", "Owner"]
+
+    properties = th.PropertiesList()
+
+    if attribute["AttributeType"] in FORMATTED:
+        base_property = th.Property(
+            attribute["LogicalName"],
+            attribute_type_to_jsonschema_type(attribute["AttributeType"])
+        )
+
+        properties.append(base_property)
+
+        formatted_property = th.Property(
+            f"""{attribute["LogicalName"]}@OData.Community.Display.V1.FormattedValue""",
+            th.StringType,
+        )
+        properties.append(formatted_property)
+
+        return properties
+
+    elif attribute["AttributeType"] in FORMATTED_NAV_LKUP:
+        modified_name = f"""_{attribute["LogicalName"]}_value"""
         """
-        TODO: Handle this:
-        "_owningbusinessunit_value@OData.Community.Display.V1.FormattedValue": "ipmhadev",
-        "_owningbusinessunit_value@Microsoft.Dynamics.CRM.associatednavigationproperty": "owningbusinessunit",
-        "_owningbusinessunit_value@Microsoft.Dynamics.CRM.lookuplogicalname": "businessunit",
-        """
-        SIMPLE = []
-        FORMATTED = []
-        FORMATTED_NAV_LKUP = []
+            "_ownerid_value@OData.Community.Display.V1.FormattedValue": "sa_BIDWScheduling #",
+            "_ownerid_value@Microsoft.Dynamics.CRM.associatednavigationproperty": "ownerid",
+            "_ownerid_value@Microsoft.Dynamics.CRM.lookuplogicalname": "systemuser",
+            "_ownerid_value": "0ae8c9a0-923b-ed11-bba3-0022481563ba",
+            """
         
-        mapping = {
-        "Boolean": th.BooleanType,
-        "Customer": th.StringType,
-        "DateTime": th.DateTimeType,
-        "Decimal": th.NumberType,
-        "Double": th.NumberType,
-        "Integer": th.IntegerType,
-        "Lookup": th.StringType,
-        "Memo": th.StringType,
-        "Money": th.NumberType,
-        "Owner": th.StringType,
-        "PartyList": th.StringType,
-        "Picklist": th.StringType,
-        "State": th.StringType,
-        "Status": th.StringType,
-        "String": th.StringType,
-        "Uniqueidentifier": th.StringType,
-        "CalendarRules": th.StringType,
-        "Virtual": th.StringType,
-        "BigInt": th.StringType,
-        "ManagedProperty": th.StringType,
-        "EntityName": th.StringType,
-    }
+        properties.append(th.Property(
+            modified_name,
+            th.UUIDType,
+        ))
+        properties.append(th.Property(
+            f"""{modified_name}@OData.Community.Display.V1.FormattedValue""",
+            th.StringType,
+        ))
+        properties.append(th.Property(
+            f"""{modified_name}@Microsoft.Dynamics.CRM.associatednavigationproperty""",
+            th.StringType,
+        ))
+        properties.append(th.Property(
+            f"""{modified_name}@Microsoft.Dynamics.CRM.lookuplogicalname""",
+            th.StringType,
+        ))
+        return properties
+
+    else:
+        properties.append(th.Property(
+            attribute["LogicalName"],
+            attribute_type_to_jsonschema_type(attribute["AttributeType"])
+        ))
+
+        if attribute["AttributeType"] == "Money":
+            properties.append(th.Property(
+                f"""{attribute["LogicalName"]}_base""",
+                attribute_type_to_jsonschema_type(attribute["AttributeType"])
+            ))
+
+        return properties

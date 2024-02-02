@@ -12,7 +12,7 @@ from typing import Any, Dict, Generator, Iterable, Optional, Union
 
 from tap_dataverse.streams import DataverseTableStream
 from tap_dataverse.client import DataverseStream
-from tap_dataverse.utils import attribute_type_to_jsonschema_type, attribute_to_properties
+from tap_dataverse.utils import attribute_to_properties
 
 
 class TapDataverse(Tap):
@@ -94,19 +94,9 @@ class TapDataverse(Tap):
             properties = th.PropertiesList()
 
             for attribute in attributes:
-                # Special types:    
-                # TODO: Create a new utils function that takes attribute(dict) and returns a list of th.Property()                            
-                if attribute["AttributeType"] in ["Lookup","Owner"]:
-                    attribute_name = f"_{attribute['LogicalName']}_value"
-                else:
-                    attribute_name = attribute['LogicalName']
+                # TODO: Need to work out how to append a PropertiesList to a PropertiesList
+                properties.append(attribute_to_properties(attribute))
                 
-                properties.append(
-                        th.Property(
-                            attribute_name,
-                            attribute_type_to_jsonschema_type(attribute["AttributeType"]),
-                        )
-                    )
 
             # Repoint the discovery stream to find the EntitySetName required in the url
             # which accesses the table

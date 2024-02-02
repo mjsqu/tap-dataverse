@@ -36,8 +36,7 @@ NS = {
 class DataverseStream(RESTStream):
     """Dataverse stream class."""
 
-    """This stream is not actually synced, it is used initially for discovery
-    """
+    """This stream is not actually synced, it is used initially for discovery ONLY."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
