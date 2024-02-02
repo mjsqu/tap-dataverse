@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "tap-dataverse discovery",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "tap_dataverse.tap",
             "args": [
@@ -19,7 +19,7 @@
         },
         {
             "name": "tap-dataverse env",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "tap_dataverse.tap",
             "args": [
@@ -27,8 +27,8 @@
                 "ENV"
             ],
             "env": {
-                "TAP_DATAVERSE_API_URL": "https://org59a6e87f.api.crm6.dynamics.com/",
-                "TAP_DATAVERSE_RESOURCE": "https://org59a6e87f.api.crm6.dynamics.com/"
+                "TAP_DATAVERSE_API_URL": "https://ipmhadev.api.crm6.dynamics.com/",
+                "TAP_DATAVERSE_RESOURCE": "https://ipmhadev.api.crm6.dynamics.com/"
             },
             "python": "${command:python.interpreterPath}",
             // Set to true to debug third-party library code

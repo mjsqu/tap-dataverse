@@ -12,7 +12,7 @@ from typing import Any, Dict, Generator, Iterable, Optional, Union
 
 from tap_dataverse.streams import DataverseTableStream
 from tap_dataverse.client import DataverseStream
-from tap_dataverse.auth import DataverseAuthenticator
+from tap_dataverse.utils import attribute_type_to_jsonschema_type
 
 
 class TapDataverse(Tap):
@@ -52,6 +52,12 @@ class TapDataverse(Tap):
             required=True,
             description="The url for the API service",
         ),
+        th.Property(
+            "streams",
+            th.ArrayType(th.StringType),
+            required=True,
+            description="The list of streams to extract",
+        ),
     )
 
     config_jsonschema = tap_properties.to_dict()
@@ -62,26 +68,40 @@ class TapDataverse(Tap):
         Returns:
             A list of discovered streams.
         """
-        discovery_stream = DataverseStream(
-            tap=self,
-            name="discovery",
-            schema={"dummy": "dummy"},
-            path="api/data/v9.2/EntityDefinitions(LogicalName='cr1c7_datatypetesting')/Attributes",
-        )
-        r = discovery_stream.get_records(context=None)
-        for rec in r:
-            print(rec)
         streams = []
+        logical_names = self.config["streams"]
+        
+        for logical_name in logical_names:
+            discovery_stream = DataverseStream(
+                tap=self,
+                name="discovery",
+                schema=th.PropertiesList(  # type: ignore
+                    th.Property("LogicalName", th.IntegerType),
+                    th.Property("AttributeType", th.StringType),
+                ).to_dict(),
+                path=f"/api/data/v9.2/EntityDefinitions(LogicalName='{logical_name}')/Attributes?$select=LogicalName,AttributeType",
+            )
 
-        for stream in self.config["streams"]:
-            pass
+            attributes = discovery_stream.get_records(context=None)
+            
+            properties = th.PropertiesList()
+            
+            for attribute in attributes:
+                self.logger.info(attribute)
+                # Build a schema and translate datatypes from Dynamics to JSONSchema
+                properties.append(th.Property(attribute["LogicalName"],attribute_type_to_jsonschema_type(attribute["AttributeType"])))
+            
+            discovery_stream.path = f"/api/data/v9.2/EntityDefinitions(LogicalName='{logical_name}')?$select=EntitySetName"
+            discovery_stream.records_jsonpath = "$.[*]"
+            
+            entity_definitions = discovery_stream.get_records(context=None)
+            
+            for entity_definition in entity_definitions:
+                entity_set_name = entity_definition['EntitySetName']
 
-    def get_schema(self, logical_name: str) -> Any:
-        """Retrieve the schema from the /api/v{}/EntitityDefinition(LogicalName={})/Attributes endpoint."""
-        # https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/query-metadata-web-api#querying-entitymetadata-attributes
-
-        pass
-
+            streams.append(DataverseTableStream(tap=self, name=logical_name, path=f"/api/data/v9.2/{entity_set_name}",schema=properties.to_dict()))
+        
+        return streams
 
 if __name__ == "__main__":
     TapDataverse.cli()

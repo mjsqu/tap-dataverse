@@ -47,10 +47,10 @@ class DataverseStream(RESTStream):
         """Return the API URL root, configurable via tap settings."""
         return self.config["api_url"]
 
-    records_jsonpath = "$[*]"  # Or override `parse_response`.
+    records_jsonpath = "$.value[*]"  # Or override `parse_response`.
 
     # Set this value or override `get_new_paginator`.
-    next_page_token_jsonpath = "$.next_page"  # noqa: S105
+    next_page_token_jsonpath = "$.['@odata.nextLink']"  # noqa: S105
 
     @cached_property
     def authenticator(self) -> _Auth:

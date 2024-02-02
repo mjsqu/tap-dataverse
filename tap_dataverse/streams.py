@@ -23,7 +23,6 @@ class DataverseTableStream(DataverseStream):
         self,
         tap: Any,
         name: str,
-        records_path: str,
         path: str,
         schema: Optional[dict] = None,
     ) -> None:
@@ -32,7 +31,7 @@ class DataverseTableStream(DataverseStream):
 
         self.name = name
         self.path = path
-        self.records_path = records_path
+        self.records_path = super().records_jsonpath
     
     @property
     def authenticator(self) -> DataverseAuthenticator:
