@@ -45,12 +45,22 @@ class DataverseStream(RESTStream):
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
-        return self.config["api_url"]
+        return f"""{self.config["api_url"]}/api/data/v{self.config["api_version"]}"""
 
     records_jsonpath = "$.value[*]"  # Or override `parse_response`.
 
     # Set this value or override `get_new_paginator`.
     next_page_token_jsonpath = "$.['@odata.nextLink']"  # noqa: S105
+
+    @property
+    def http_headers(self) -> dict:
+        headers = super().http_headers
+        # https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/compose-http-requests-handle-errors#http-headers
+        headers["Accept"] = "application/json"
+        headers["OData-MaxVersion"] = "4.0"
+        headers["OData-Version"] = "4.0"
+        headers["If-None-Match"] = None
+        return headers
 
     @cached_property
     def authenticator(self) -> _Auth:
@@ -64,18 +74,6 @@ class DataverseStream(RESTStream):
             auth_endpoint=f"https://login.microsoftonline.com/{self.config['tenant_id']}/oauth2/token",
             oauth_scopes=f"{self.config['api_url']}/.default",
         )
-
-    @property
-    def http_headers(self) -> dict:
-        """Return the http headers needed.
-
-        Returns:
-            A dictionary of HTTP headers.
-        """
-        headers = {}
-        if "user_agent" in self.config:
-            headers["User-Agent"] = self.config.get("user_agent")
-        return headers
 
     def get_new_paginator(self) -> BaseAPIPaginator:
         """Create a new pagination helper instance.

@@ -34,6 +34,14 @@ class DataverseTableStream(DataverseStream):
         self.records_path = super().records_jsonpath
     
     @property
+    def http_headers(self) -> dict:
+        # TODO: Make configurable
+        # TODO: Add default headers
+        headers = super().http_headers
+        headers["Prefer"] = 'odata.include-annotations="*"'
+        return headers
+
+    @property
     def authenticator(self) -> DataverseAuthenticator:
         return DataverseAuthenticator(stream=self)
 

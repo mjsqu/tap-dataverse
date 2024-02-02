@@ -12,7 +12,7 @@ from typing import Any, Dict, Generator, Iterable, Optional, Union
 
 from tap_dataverse.streams import DataverseTableStream
 from tap_dataverse.client import DataverseStream
-from tap_dataverse.utils import attribute_type_to_jsonschema_type
+from tap_dataverse.utils import attribute_type_to_jsonschema_type, attribute_to_properties
 
 
 class TapDataverse(Tap):
@@ -58,6 +58,12 @@ class TapDataverse(Tap):
             required=True,
             description="The list of streams to extract",
         ),
+        th.Property(
+            "api_version",
+            th.StringType,
+            default="9.2",
+            description="The API version found in the /api/data/v{x.y} of URLs",
+        ),
     )
 
     config_jsonschema = tap_properties.to_dict()
@@ -70,8 +76,9 @@ class TapDataverse(Tap):
         """
         streams = []
         logical_names = self.config["streams"]
-        
+
         for logical_name in logical_names:
+            endpoint_root = f"/EntityDefinitions(LogicalName='{logical_name}')"
             discovery_stream = DataverseStream(
                 tap=self,
                 name="discovery",
@@ -79,29 +86,49 @@ class TapDataverse(Tap):
                     th.Property("LogicalName", th.IntegerType),
                     th.Property("AttributeType", th.StringType),
                 ).to_dict(),
-                path=f"/api/data/v9.2/EntityDefinitions(LogicalName='{logical_name}')/Attributes?$select=LogicalName,AttributeType",
+                path=f"{endpoint_root}/Attributes?$select=LogicalName,AttributeType",
             )
 
             attributes = discovery_stream.get_records(context=None)
-            
-            properties = th.PropertiesList()
-            
-            for attribute in attributes:
-                self.logger.info(attribute)
-                # Build a schema and translate datatypes from Dynamics to JSONSchema
-                properties.append(th.Property(attribute["LogicalName"],attribute_type_to_jsonschema_type(attribute["AttributeType"])))
-            
-            discovery_stream.path = f"/api/data/v9.2/EntityDefinitions(LogicalName='{logical_name}')?$select=EntitySetName"
-            discovery_stream.records_jsonpath = "$.[*]"
-            
-            entity_definitions = discovery_stream.get_records(context=None)
-            
-            for entity_definition in entity_definitions:
-                entity_set_name = entity_definition['EntitySetName']
 
-            streams.append(DataverseTableStream(tap=self, name=logical_name, path=f"/api/data/v9.2/{entity_set_name}",schema=properties.to_dict()))
-        
+            properties = th.PropertiesList()
+
+            for attribute in attributes:
+                # Special types:    
+                # TODO: Create a new utils function that takes attribute(dict) and returns a list of th.Property()                            
+                if attribute["AttributeType"] in ["Lookup","Owner"]:
+                    attribute_name = f"_{attribute['LogicalName']}_value"
+                else:
+                    attribute_name = attribute['LogicalName']
+                
+                properties.append(
+                        th.Property(
+                            attribute_name,
+                            attribute_type_to_jsonschema_type(attribute["AttributeType"]),
+                        )
+                    )
+
+            # Repoint the discovery stream to find the EntitySetName required in the url
+            # which accesses the table
+            discovery_stream.path = f"{endpoint_root}?$select=EntitySetName"
+            discovery_stream.records_jsonpath = "$.[*]"
+
+            entity_definitions = discovery_stream.get_records(context=None)
+
+            for entity_definition in entity_definitions:
+                entity_set_name = entity_definition["EntitySetName"]
+
+            stream = DataverseTableStream(
+                    tap=self,
+                    name=logical_name,
+                    path=f"/{entity_set_name}",
+                    schema=properties.to_dict(),
+                )
+            
+            streams.append(stream)
+
         return streams
+
 
 if __name__ == "__main__":
     TapDataverse.cli()

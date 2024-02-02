@@ -53,3 +53,38 @@ def attribute_type_to_jsonschema_type(attribute_type: str):
     }
 
     return mapping.get(attribute_type,th.StringType)
+
+def attribute_to_properties(attribute: dict) -> [th.Property]:
+        """
+        TODO: Handle this:
+        "_owningbusinessunit_value@OData.Community.Display.V1.FormattedValue": "ipmhadev",
+        "_owningbusinessunit_value@Microsoft.Dynamics.CRM.associatednavigationproperty": "owningbusinessunit",
+        "_owningbusinessunit_value@Microsoft.Dynamics.CRM.lookuplogicalname": "businessunit",
+        """
+        SIMPLE = []
+        FORMATTED = []
+        FORMATTED_NAV_LKUP = []
+        
+        mapping = {
+        "Boolean": th.BooleanType,
+        "Customer": th.StringType,
+        "DateTime": th.DateTimeType,
+        "Decimal": th.NumberType,
+        "Double": th.NumberType,
+        "Integer": th.IntegerType,
+        "Lookup": th.StringType,
+        "Memo": th.StringType,
+        "Money": th.NumberType,
+        "Owner": th.StringType,
+        "PartyList": th.StringType,
+        "Picklist": th.StringType,
+        "State": th.StringType,
+        "Status": th.StringType,
+        "String": th.StringType,
+        "Uniqueidentifier": th.StringType,
+        "CalendarRules": th.StringType,
+        "Virtual": th.StringType,
+        "BigInt": th.StringType,
+        "ManagedProperty": th.StringType,
+        "EntityName": th.StringType,
+    }
