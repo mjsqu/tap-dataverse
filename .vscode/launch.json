@@ -27,8 +27,8 @@
                 "ENV"
             ],
             "env": {
-                "TAP_DATAVERSE_API_URL": "https://ipmhadev.api.crm6.dynamics.com/",
-                "TAP_DATAVERSE_RESOURCE": "https://ipmhadev.api.crm6.dynamics.com/"
+                "TAP_DATAVERSE_API_URL": "",
+                "TAP_DATAVERSE_RESOURCE": ""
             },
             "python": "${command:python.interpreterPath}",
             // Set to true to debug third-party library code

@@ -39,14 +39,14 @@ def attribute_type_to_jsonschema_type(attribute_type: str):
         "Money": th.NumberType,
         "Owner": th.StringType,
         "PartyList": th.StringType,
-        "Picklist": th.StringType,
-        "State": th.StringType,
-        "Status": th.StringType,
+        "Picklist": th.IntegerType,
+        "State": th.IntegerType,
+        "Status": th.IntegerType,
         "String": th.StringType,
         "Uniqueidentifier": th.UUIDType,
         "CalendarRules": th.StringType,
         "Virtual": th.StringType,
-        "BigInt": th.StringType,
+        "BigInt": th.IntegerType,
         "ManagedProperty": th.StringType,
         "EntityName": th.StringType,
     }
@@ -54,7 +54,7 @@ def attribute_type_to_jsonschema_type(attribute_type: str):
     return mapping.get(attribute_type, th.StringType)
 
 
-def attribute_to_properties(attribute: dict) -> th.PropertiesList:
+def attribute_to_properties(attribute: dict) -> list:
     """
     TODO: Handle this:
     "_owningbusinessunit_value@OData.Community.Display.V1.FormattedValue": "ipmhadev",
@@ -80,7 +80,7 @@ def attribute_to_properties(attribute: dict) -> th.PropertiesList:
     ]
     FORMATTED_NAV_LKUP = ["Lookup", "Owner"]
 
-    properties = th.PropertiesList()
+    properties = []
 
     if attribute["AttributeType"] in FORMATTED:
         base_property = th.Property(
@@ -101,11 +101,12 @@ def attribute_to_properties(attribute: dict) -> th.PropertiesList:
     elif attribute["AttributeType"] in FORMATTED_NAV_LKUP:
         modified_name = f"""_{attribute["LogicalName"]}_value"""
         """
+        Sample: 
             "_ownerid_value@OData.Community.Display.V1.FormattedValue": "sa_BIDWScheduling #",
             "_ownerid_value@Microsoft.Dynamics.CRM.associatednavigationproperty": "ownerid",
             "_ownerid_value@Microsoft.Dynamics.CRM.lookuplogicalname": "systemuser",
             "_ownerid_value": "0ae8c9a0-923b-ed11-bba3-0022481563ba",
-            """
+        """
         
         properties.append(th.Property(
             modified_name,

@@ -77,6 +77,9 @@ class TapDataverse(Tap):
         streams = []
         logical_names = self.config["streams"]
 
+        # TODO: Add replication-key of modifiedon - allow configurable
+        # TODO: Refactor into a separate function
+        # TODO: Work out how to add parameters to a Stream rather than string appends
         for logical_name in logical_names:
             endpoint_root = f"/EntityDefinitions(LogicalName='{logical_name}')"
             discovery_stream = DataverseStream(
@@ -95,7 +98,8 @@ class TapDataverse(Tap):
 
             for attribute in attributes:
                 # TODO: Need to work out how to append a PropertiesList to a PropertiesList
-                properties.append(attribute_to_properties(attribute))
+                for property in attribute_to_properties(attribute):
+                    properties.append(property)
                 
 
             # Repoint the discovery stream to find the EntitySetName required in the url
