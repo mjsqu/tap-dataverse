@@ -38,8 +38,9 @@ class DataverseStream(RESTStream):
 
     """This stream is not actually synced, it is used initially for discovery ONLY."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, params = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.params = params
         
     @property
     def url_base(self) -> str:
@@ -107,8 +108,11 @@ class DataverseStream(RESTStream):
         if next_page_token:
             params["page"] = next_page_token
         if self.replication_key:
-            params["sort"] = "asc"
-            params["order_by"] = self.replication_key
+            params["orderby"] = f"{self.replication_key} asc"
+        
+        if self.params:
+            params = params | self.params
+        
         return params
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:

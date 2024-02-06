@@ -79,7 +79,7 @@ class TapDataverse(Tap):
 
         # TODO: Add replication-key of modifiedon - allow configurable
         # TODO: Refactor into a separate function
-        # TODO: Work out how to add parameters to a Stream rather than string appends
+        # TODO: Work out how to add http parameters to a Stream rather than string appends
         for logical_name in logical_names:
             endpoint_root = f"/EntityDefinitions(LogicalName='{logical_name}')"
             discovery_stream = DataverseStream(
@@ -89,7 +89,10 @@ class TapDataverse(Tap):
                     th.Property("LogicalName", th.IntegerType),
                     th.Property("AttributeType", th.StringType),
                 ).to_dict(),
-                path=f"{endpoint_root}/Attributes?$select=LogicalName,AttributeType",
+                path=f"{endpoint_root}/Attributes",
+                params={
+                    "$select": "LogicalName,AttributeType"
+                }
             )
 
             attributes = discovery_stream.get_records(context=None)
@@ -104,7 +107,8 @@ class TapDataverse(Tap):
 
             # Repoint the discovery stream to find the EntitySetName required in the url
             # which accesses the table
-            discovery_stream.path = f"{endpoint_root}?$select=EntitySetName"
+            discovery_stream.path = f"{endpoint_root}"
+            discovery_stream.params = {"$select":"EntitySetName"}
             discovery_stream.records_jsonpath = "$.[*]"
 
             entity_definitions = discovery_stream.get_records(context=None)
