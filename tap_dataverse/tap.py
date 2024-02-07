@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import requests
+import copy
 
 from singer_sdk import Tap
 from singer_sdk import typing as th  # JSON schema typing helpers
-from singer_sdk._singerlib.catalog import Catalog, CatalogEntry
-
-from typing import Any, Dict, Generator, Iterable, Optional, Union
 
 from tap_dataverse.streams import DataverseTableStream
 from tap_dataverse.client import DataverseStream
@@ -53,16 +50,61 @@ class TapDataverse(Tap):
             description="The url for the API service",
         ),
         th.Property(
-            "streams",
-            th.ArrayType(th.StringType),
-            required=True,
-            description="The list of streams to extract",
-        ),
-        th.Property(
             "api_version",
             th.StringType,
             default="9.2",
             description="The API version found in the /api/data/v{x.y} of URLs",
+        ),
+    )
+    
+    _stream_properties = th.PropertiesList(
+        th.Property(
+            "path",
+            th.StringType,
+            required=True,
+            description="the path appended to the `api_url`. Stream-level path will "
+            "overwrite top-level path",
+        ),
+        # TODO: Instead of generic "params" - add select/count/filter etc.
+        # TODO: Instead of generic "headers" - check what can be added to the Dataverse API
+        # TODO: Find out how to infer the primary key from the EntityDetails response
+        th.Property(
+            "replication_key",
+            th.StringType,
+            required=False,
+            description="the json response field representing the replication key."
+            "Note that this should be an incrementing integer or datetime object.",
+        ),
+        th.Property(
+            "start_date",
+            th.DateTimeType,
+            required=False,
+            description="An optional field. Normally required when using the"
+            "replication_key. This is the initial starting date when using a"
+            "date based replication key and there is no state available.",
+        ),
+    )
+
+        # add common properties to top-level properties
+    for prop in tap_properties.wrapped.values():
+        tap_properties.append(prop)
+
+    # add common properties to the stream schema
+    stream_properties = th.PropertiesList()
+    stream_properties.wrapped = copy.copy(_stream_properties.wrapped)
+    stream_properties.append( 
+        th.Property(
+            "name", th.StringType, required=True, description="name of the stream"
+        ),
+    )
+
+    # add streams schema to top-level properties
+    tap_properties.append(
+        th.Property(
+            "streams",
+            th.ArrayType(th.ObjectType(*stream_properties.wrapped.values())),
+            description="An array of streams, designed for separate paths using the"
+            "same base url.",
         ),
     )
 
@@ -74,13 +116,13 @@ class TapDataverse(Tap):
         Returns:
             A list of discovered streams.
         """
-        streams = []
-        logical_names = self.config["streams"]
+        discovered_streams = []
+        streams = self.config["streams"]
 
         # TODO: Add replication-key of modifiedon - allow configurable
         # TODO: Refactor into a separate function
-        # TODO: Work out how to add http parameters to a Stream rather than string appends
-        for logical_name in logical_names:
+        for stream in streams:
+            logical_name = stream.get('path')
             endpoint_root = f"/EntityDefinitions(LogicalName='{logical_name}')"
             discovery_stream = DataverseStream(
                 tap=self,
@@ -116,16 +158,18 @@ class TapDataverse(Tap):
             for entity_definition in entity_definitions:
                 entity_set_name = entity_definition["EntitySetName"]
 
-            stream = DataverseTableStream(
+            discovered_stream = DataverseTableStream(
                     tap=self,
                     name=logical_name,
                     path=f"/{entity_set_name}",
                     schema=properties.to_dict(),
+                    replication_key=stream.get("replication_key"),
+                    start_date=stream.get("start_date"),
                 )
             
-            streams.append(stream)
+            discovered_streams.append(discovered_stream)
 
-        return streams
+        return discovered_streams
 
 
 if __name__ == "__main__":

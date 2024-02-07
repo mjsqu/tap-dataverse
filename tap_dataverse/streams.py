@@ -25,6 +25,8 @@ class DataverseTableStream(DataverseStream):
         name: str,
         path: str,
         schema: Optional[dict] = None,
+        replication_key: str = None,
+        start_date: str = None,
     ) -> None:
         
         super().__init__(tap=tap, name=tap.name, schema=schema)
@@ -32,6 +34,9 @@ class DataverseTableStream(DataverseStream):
         self.name = name
         self.path = path
         self.records_path = super().records_jsonpath
+        # TODO: Properly implement replication keys and start dates
+        self.replication_key = replication_key
+        self.start_date = start_date
     
     @property
     def http_headers(self) -> dict:

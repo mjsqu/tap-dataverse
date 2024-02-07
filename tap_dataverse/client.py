@@ -108,8 +108,13 @@ class DataverseStream(RESTStream):
         if next_page_token:
             params["page"] = next_page_token
         if self.replication_key:
-            params["orderby"] = f"{self.replication_key} asc"
-        
+            params["$orderby"] = f"{self.replication_key} asc"
+        # TODO: Properly implement replication keys and start dates
+        if self.get_starting_timestamp(context):
+            # $filter=modifiedon%20le%202022-02-22T10:51:00.000Z%20and%20modifiedon%20ge%202022-02-22T10:36:00.000Z
+            params["$filter"] = f"{self.replication_key} ge {self.get_starting_timestamp(context)}"
+
+
         if self.params:
             params = params | self.params
         
