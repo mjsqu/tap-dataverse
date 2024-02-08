@@ -1,5 +1,6 @@
 from singer_sdk import typing as th  # JSON schema typing helpers
 from singer_sdk.typing import JSONTypeHelper
+from typing import Any, Optional
 
 def attribute_type_to_jsonschema_type(attribute_type: str):
     """

@@ -5,11 +5,12 @@ from __future__ import annotations
 import requests
 import sys
 from typing import Any, Dict, Generator, Iterable, Optional, Union
+import typing as t
 
 from singer_sdk import typing as th  # JSON Schema typing helpers
 from singer_sdk.helpers.jsonpath import extract_jsonpath
 
-from tap_dataverse.client import DataverseStream
+from tap_dataverse.client import DataverseBaseStream
 from tap_dataverse.auth import DataverseAuthenticator
 
 if sys.version_info >= (3, 9):
@@ -17,7 +18,9 @@ if sys.version_info >= (3, 9):
 else:
     import importlib_resources
 
-class DataverseTableStream(DataverseStream):
+_TToken = t.TypeVar("_TToken")
+
+class DataverseTableStream(DataverseBaseStream):
     """Customised stream for any Dataverse Table."""
     def __init__(
         self,
@@ -29,11 +32,12 @@ class DataverseTableStream(DataverseStream):
         start_date: str = None,
     ) -> None:
         
-        super().__init__(tap=tap, name=tap.name, schema=schema)
-
+        super().__init__(tap=tap, name=tap.name, schema=schema,)
+        
+        self.tap = tap
         self.name = name
         self.path = path
-        self.records_path = super().records_jsonpath
+        self.records_path = "$.value[*]"
         # TODO: Properly implement replication keys and start dates
         self.replication_key = replication_key
         self.start_date = start_date
@@ -49,6 +53,44 @@ class DataverseTableStream(DataverseStream):
     @property
     def authenticator(self) -> DataverseAuthenticator:
         return DataverseAuthenticator(stream=self)
+    
+    def get_url_params(
+        self, context: Optional[dict], next_page_token: Optional[Any]
+    ) -> Dict[str, Any]:
+        """Return a dictionary of values to be used in URL parameterization.
+
+        Args:
+            context: optional - the singer context object.
+            next_page_token: optional - the token for the next page of results.
+
+        Returns:
+            An object containing the parameters to add to the request.
+
+        """
+        # Initialise Starting Values
+        try:
+            last_run_date=self.get_starting_timestamp(context).strftime("%Y-%m-%dT%H:%MZ")
+        except (ValueError, AttributeError):
+            last_run_date=self.get_starting_replication_key_value(context)
+
+        params: dict = {}
+        if self.params:
+            for k, v in self.params.items():
+                params[k] = v
+        if next_page_token:
+            if self.pagination_next_page_param:
+                next_page_parm = self.pagination_next_page_param
+            else:
+                next_page_parm = "page"
+            params[next_page_parm] = next_page_token
+        
+        if self.replication_key and last_run_date:
+            params["$orderby"] = f"{self.replication_key} asc"
+            params["$filter"] = f"{self.replication_key} ge {last_run_date}"
+
+        self.logger.info(params)
+        return params
+
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
         """Parse the response and return an iterator of result rows.

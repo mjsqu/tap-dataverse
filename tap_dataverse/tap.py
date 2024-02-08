@@ -16,7 +16,7 @@ class TapDataverse(Tap):
     """Dataverse tap class."""
 
     name = "tap-dataverse"
-    dynamic_catalog = True
+    #dynamic_catalog = True
 
     tap_properties = th.PropertiesList(
         th.Property(
@@ -56,7 +56,7 @@ class TapDataverse(Tap):
             description="The API version found in the /api/data/v{x.y} of URLs",
         ),
     )
-    
+
     _stream_properties = th.PropertiesList(
         th.Property(
             "path",
@@ -85,14 +85,14 @@ class TapDataverse(Tap):
         ),
     )
 
-        # add common properties to top-level properties
+    # add common properties to top-level properties
     for prop in tap_properties.wrapped.values():
         tap_properties.append(prop)
 
     # add common properties to the stream schema
     stream_properties = th.PropertiesList()
     stream_properties.wrapped = copy.copy(_stream_properties.wrapped)
-    stream_properties.append( 
+    stream_properties.append(
         th.Property(
             "name", th.StringType, required=True, description="name of the stream"
         ),
@@ -119,10 +119,9 @@ class TapDataverse(Tap):
         discovered_streams = []
         streams = self.config["streams"]
 
-        # TODO: Add replication-key of modifiedon - allow configurable
         # TODO: Refactor into a separate function
         for stream in streams:
-            logical_name = stream.get('path')
+            logical_name = stream.get("path")
             endpoint_root = f"/EntityDefinitions(LogicalName='{logical_name}')"
             discovery_stream = DataverseStream(
                 tap=self,
@@ -132,25 +131,22 @@ class TapDataverse(Tap):
                     th.Property("AttributeType", th.StringType),
                 ).to_dict(),
                 path=f"{endpoint_root}/Attributes",
-                params={
-                    "$select": "LogicalName,AttributeType"
-                }
+                params={"$select": "LogicalName,AttributeType"},
             )
+            self.logger.info(discovery_stream.get_starting_replication_key_value(None))
 
             attributes = discovery_stream.get_records(context=None)
 
             properties = th.PropertiesList()
 
             for attribute in attributes:
-                # TODO: Need to work out how to append a PropertiesList to a PropertiesList
                 for property in attribute_to_properties(attribute):
                     properties.append(property)
-                
 
             # Repoint the discovery stream to find the EntitySetName required in the url
             # which accesses the table
             discovery_stream.path = f"{endpoint_root}"
-            discovery_stream.params = {"$select":"EntitySetName"}
+            discovery_stream.params = {"$select": "EntitySetName"}
             discovery_stream.records_jsonpath = "$.[*]"
 
             entity_definitions = discovery_stream.get_records(context=None)
@@ -159,14 +155,16 @@ class TapDataverse(Tap):
                 entity_set_name = entity_definition["EntitySetName"]
 
             discovered_stream = DataverseTableStream(
-                    tap=self,
-                    name=logical_name,
-                    path=f"/{entity_set_name}",
-                    schema=properties.to_dict(),
-                    replication_key=stream.get("replication_key"),
-                    start_date=stream.get("start_date"),
-                )
-            
+                tap=self,
+                name=logical_name,
+                path=f"/{entity_set_name}",
+                schema=properties.to_dict(),
+                start_date=stream.get("start_date", self.config.get("start_date", "")),
+                replication_key=stream.get(
+                    "replication_key", self.config.get("replication_key", "")
+                ),
+            )
+
             discovered_streams.append(discovered_stream)
 
         return discovered_streams

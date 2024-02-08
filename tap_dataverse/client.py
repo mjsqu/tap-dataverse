@@ -33,25 +33,16 @@ NS = {
     "edm": "http://docs.oasis-open.org/odata/ns/edm"
 }
 
-class DataverseStream(RESTStream):
-    """Dataverse stream class."""
-
-    """This stream is not actually synced, it is used initially for discovery ONLY."""
-
+class DataverseBaseStream(RESTStream):
     def __init__(self, params = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.params = params
-        
+    
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
         return f"""{self.config["api_url"]}/api/data/v{self.config["api_version"]}"""
-
-    records_jsonpath = "$.value[*]"  # Or override `parse_response`.
-
-    # Set this value or override `get_new_paginator`.
-    next_page_token_jsonpath = "$.['@odata.nextLink']"  # noqa: S105
-
+    
     @property
     def http_headers(self) -> dict:
         headers = super().http_headers
@@ -61,7 +52,7 @@ class DataverseStream(RESTStream):
         headers["OData-Version"] = "4.0"
         headers["If-None-Match"] = None
         return headers
-
+    
     @cached_property
     def authenticator(self) -> _Auth:
         """Return a new authenticator object.
@@ -74,6 +65,16 @@ class DataverseStream(RESTStream):
             auth_endpoint=f"https://login.microsoftonline.com/{self.config['tenant_id']}/oauth2/token",
             oauth_scopes=f"{self.config['api_url']}/.default",
         )
+
+
+class DataverseStream(DataverseBaseStream):
+    """Dataverse stream class."""
+
+    """This stream is not actually synced, it is used initially for discovery ONLY."""      
+    records_jsonpath = "$.value[*]"  # Or override `parse_response`.
+
+    # Set this value or override `get_new_paginator`.
+    next_page_token_jsonpath = "$.['@odata.nextLink']"  # noqa: S105
 
     def get_new_paginator(self) -> BaseAPIPaginator:
         """Create a new pagination helper instance.
@@ -88,6 +89,7 @@ class DataverseStream(RESTStream):
         Returns:
             A pagination helper instance.
         """
+        #TODO: Enhance this to use the @odata.next links according to the guide
         return super().get_new_paginator()
 
     def get_url_params(
@@ -107,13 +109,6 @@ class DataverseStream(RESTStream):
         params: dict = {}
         if next_page_token:
             params["page"] = next_page_token
-        if self.replication_key:
-            params["$orderby"] = f"{self.replication_key} asc"
-        # TODO: Properly implement replication keys and start dates
-        if self.get_starting_timestamp(context):
-            # $filter=modifiedon%20le%202022-02-22T10:51:00.000Z%20and%20modifiedon%20ge%202022-02-22T10:36:00.000Z
-            params["$filter"] = f"{self.replication_key} ge {self.get_starting_timestamp(context)}"
-
 
         if self.params:
             params = params | self.params
@@ -131,27 +126,6 @@ class DataverseStream(RESTStream):
         """
         # TODO: Parse response body and return a set of records.
         yield from extract_jsonpath(self.records_jsonpath, input=response.json())
-
-    def post_process(
-        self,
-        row: dict,
-        context: dict | None = None,  # noqa: ARG002
-    ) -> dict | None:
-        """As needed, append or transform raw data to match expected structure.
-
-        Args:
-            row: An individual record from the stream.
-            context: The stream context.
-
-        Returns:
-            The updated record dictionary, or ``None`` to skip the record.
-        """
-        # TODO: Delete this method if not needed.
-        return row
-
-    def discover_streams():
-        return []
-
 
 class MetadataStream(DataverseStream):
     """Metadata stream."""
