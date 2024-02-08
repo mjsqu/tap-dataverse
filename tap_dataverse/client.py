@@ -11,8 +11,8 @@ from singer_sdk import typing as th  # JSON Schema typing helpers
 
 import requests
 from singer_sdk.helpers.jsonpath import extract_jsonpath
-from singer_sdk.pagination import BaseAPIPaginator  # noqa: TCH002
 from singer_sdk.streams import RESTStream
+from singer_sdk.pagination import BaseHATEOASPaginator
 
 from tap_dataverse.auth import DataverseAuthenticator
 from singer_sdk.authenticators import OAuthAuthenticator
@@ -32,6 +32,11 @@ NS = {
     "edmx": "http://docs.oasis-open.org/odata/ns/edmx",
     "edm": "http://docs.oasis-open.org/odata/ns/edm"
 }
+
+class DataversePaginator(BaseHATEOASPaginator):
+    def get_next_url(self, response):
+        data = response.json()
+        return data.get("@odata.nextLink")
 
 class DataverseBaseStream(RESTStream):
     def __init__(self, params = None, *args, **kwargs):
@@ -65,32 +70,16 @@ class DataverseBaseStream(RESTStream):
             auth_endpoint=f"https://login.microsoftonline.com/{self.config['tenant_id']}/oauth2/token",
             oauth_scopes=f"{self.config['api_url']}/.default",
         )
-
+    
+    def get_new_paginator(self):
+        return DataversePaginator()
+    
 
 class DataverseStream(DataverseBaseStream):
     """Dataverse stream class."""
 
     """This stream is not actually synced, it is used initially for discovery ONLY."""      
     records_jsonpath = "$.value[*]"  # Or override `parse_response`.
-
-    # Set this value or override `get_new_paginator`.
-    next_page_token_jsonpath = "$.['@odata.nextLink']"  # noqa: S105
-
-    def get_new_paginator(self) -> BaseAPIPaginator:
-        """Create a new pagination helper instance.
-
-        If the source API can make use of the `next_page_token_jsonpath`
-        attribute, or it contains a `X-Next-Page` header in the response
-        then you can remove this method.
-
-        If you need custom pagination that uses page numbers, "next" links, or
-        other approaches, please read the guide: https://sdk.meltano.com/en/v0.25.0/guides/pagination-classes.html.
-
-        Returns:
-            A pagination helper instance.
-        """
-        #TODO: Enhance this to use the @odata.next links according to the guide
-        return super().get_new_paginator()
 
     def get_url_params(
         self,

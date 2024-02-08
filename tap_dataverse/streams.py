@@ -9,6 +9,7 @@ import typing as t
 
 from singer_sdk import typing as th  # JSON Schema typing helpers
 from singer_sdk.helpers.jsonpath import extract_jsonpath
+from urllib.parse import parse_qsl
 
 from tap_dataverse.client import DataverseBaseStream
 from tap_dataverse.auth import DataverseAuthenticator
@@ -69,7 +70,7 @@ class DataverseTableStream(DataverseBaseStream):
         """
         # Initialise Starting Values
         try:
-            last_run_date=self.get_starting_timestamp(context).strftime("%Y-%m-%dT%H:%MZ")
+            last_run_date=self.get_starting_timestamp(context).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         except (ValueError, AttributeError):
             last_run_date=self.get_starting_replication_key_value(context)
 
@@ -77,16 +78,15 @@ class DataverseTableStream(DataverseBaseStream):
         if self.params:
             for k, v in self.params.items():
                 params[k] = v
-        if next_page_token:
-            if self.pagination_next_page_param:
-                next_page_parm = self.pagination_next_page_param
-            else:
-                next_page_parm = "page"
-            params[next_page_parm] = next_page_token
         
         if self.replication_key and last_run_date:
             params["$orderby"] = f"{self.replication_key} asc"
             params["$filter"] = f"{self.replication_key} ge {last_run_date}"
+        
+        if next_page_token:
+            # Only provide the skiptoken on subsequent requests
+            self.logger.info(next_page_token.query)
+            params = dict(parse_qsl(next_page_token.query))
 
         self.logger.info(params)
         return params
