@@ -69,6 +69,7 @@ class DataverseTableStream(DataverseBaseStream):
 
         """
         # Initialise Starting Values
+        # TODO: start_date not being picked up from config
         try:
             last_run_date=self.get_starting_timestamp(context).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         except (ValueError, AttributeError):
