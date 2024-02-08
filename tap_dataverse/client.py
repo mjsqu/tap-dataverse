@@ -100,7 +100,8 @@ class DataverseStream(DataverseBaseStream):
             params["page"] = next_page_token
 
         if self.params:
-            params = params | self.params
+            for k, v in self.params.items():
+                params[k] = v
         
         return params
 
