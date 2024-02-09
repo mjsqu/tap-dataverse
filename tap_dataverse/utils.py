@@ -1,9 +1,21 @@
-from singer_sdk import typing as th  # JSON schema typing helpers
-from singer_sdk.typing import JSONTypeHelper
-from typing import Any, Optional
+"""Utilities module for TapDataverse."""
+from __future__ import annotations
 
-def attribute_type_to_jsonschema_type(attribute_type: str):
-    """
+from singer_sdk import typing as th  # JSON schema typing helpers
+
+
+def attribute_type_to_jsonschema_type(
+    attribute_type: str,
+) -> (
+    th.BooleanType
+    | th.StringType
+    | th.DateTimeType
+    | th.NumberType
+    | th.IntegerType
+    | th.UUIDType
+):
+    """Convert Dataverse data type to Singer type.
+
     https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/reference/attributetypecode?view=dataverse-latest
     Name	Value	Description
     Boolean	0	A Boolean attribute.
@@ -54,5 +66,10 @@ def attribute_type_to_jsonschema_type(attribute_type: str):
 
     return mapping.get(attribute_type, th.StringType)
 
-def sql_attribute_name(name: str):
-    return name.replace('@','__').replace('.','_')
+
+def sql_attribute_name(name: str) -> str:
+    """Reformatting function for annotations.
+
+    Reformats attribute names during discovery and in stream.post_process
+    """
+    return name.replace("@", "__").replace(".", "_")
