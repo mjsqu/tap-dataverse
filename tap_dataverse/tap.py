@@ -166,15 +166,13 @@ class TapDataverse(Tap):
             for entity_definition in entity_definitions:
                 entity_set_name = entity_definition["EntitySetName"]
 
+            stream["name"] = logical_name
+
             discovered_stream = DataverseTableStream(
                 tap=self,
-                name=logical_name,
-                path=f"/{entity_set_name}",
+                stream_config=stream,
+                entity_set_name=entity_set_name,
                 schema=properties.to_dict(),
-                start_date=stream.get("start_date", self.config.get("start_date", "")),
-                replication_key=stream.get(
-                    "replication_key", self.config.get("replication_key", "")
-                ),
             )
 
             discovered_streams.append(discovered_stream)

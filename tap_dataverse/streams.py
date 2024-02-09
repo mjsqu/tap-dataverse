@@ -25,22 +25,26 @@ class DataverseTableStream(DataverseStream):
     def __init__(
         self,
         tap: TapDataverse,
-        name: str,
-        path: str,
+        stream_config: dict,
+        entity_set_name: str,
         schema: dict | None = None,
-        replication_key: str | None = None,
-        start_date: str | None = None,
     ) -> None:
         """Init DataverseTableStream."""
-        super().__init__(tap=tap, name=tap.name, schema=schema, path=path)
+        name = stream_config.get("name")
+        path = f"/{entity_set_name}"
+        super().__init__(tap=tap, name=name, schema=schema, path=path)
 
         self.tap = tap
         self.name = name
         self.path = path
         self.records_path = "$.value[*]"
 
-        self.replication_key = replication_key
-        self.start_date = start_date
+        self.start_date = stream_config.get(
+            "start_date", tap.config.get("start_date", "")
+        )
+        self.replication_key = stream_config.get(
+            "replication_key", tap.config.get("replication_key", "")
+        )
 
     @property
     def http_headers(self) -> dict:
