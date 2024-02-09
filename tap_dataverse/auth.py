@@ -17,9 +17,8 @@ class DataverseAuthenticator(OAuthAuthenticator, metaclass=SingletonMeta):
         Returns:
             A dict with the request body
         """
-        # TODO: Define the request body needed for the API.
         return {
-            "resource": self.config["resource"],
+            "resource": self.config["api_url"],
             "scope": self.oauth_scopes,
             "client_id": self.config["client_id"],
             "client_secret": self.config["client_secret"],
@@ -27,17 +26,21 @@ class DataverseAuthenticator(OAuthAuthenticator, metaclass=SingletonMeta):
         }
 
     @classmethod
-    def create_for_stream(cls, stream, auth_endpoint, oauth_scopes) -> DataverseAuthenticator:  # noqa: ANN001
-        """Instantiate an authenticator for a specific Singer stream.
+    def create_for_stream(
+        cls,
+        stream,
+        auth_endpoint: str,
+        oauth_scopes: str,
+    ) -> DataverseAuthenticator:
+        """Create an Authenticator object specific to the Stream class.
 
         Args:
-            stream: The Singer stream instance.
+            stream: The stream instance to use with this authenticator.
+            auth_endpoint: endpoint for authentication
+            oauth_scopes: OAuth scopes
 
         Returns:
-            A new authenticator.
+            APIKeyAuthenticator: A new
+                :class:`singer_sdk.authenticators.APIKeyAuthenticator` instance.
         """
-        return cls(
-            stream=stream,
-            auth_endpoint=auth_endpoint,
-            oauth_scopes=oauth_scopes,
-        )
+        return cls(stream=stream, auth_endpoint=auth_endpoint, oauth_scopes=oauth_scopes)

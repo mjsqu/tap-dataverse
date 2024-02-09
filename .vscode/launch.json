@@ -6,20 +6,71 @@
     "configurations": [
         {
             "name": "tap-dataverse discovery",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "tap_dataverse.tap",
-            "args": ["--config", ".secrets/config.json"],
+            "args": [
+                "--config",
+                ".secrets/config.json",
+                "--discover"
+            ],
+            "python": "${command:python.interpreterPath}",
+            // Set to true to debug third-party library code
+            "justMyCode": false,
+        },
+        {
+            "name": "tap-dataverse state",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tap_dataverse.tap",
+            "args": [
+                "--config",
+                ".secrets/config.json",
+                "--state",
+                ".secrets/state.json"
+            ],
+            "python": "${command:python.interpreterPath}",
+            // Set to true to debug third-party library code
+            "justMyCode": false,
+        },
+        {
+            "name": "tap-dataverse no state",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tap_dataverse.tap",
+            "args": [
+                "--config",
+                ".secrets/config.json"
+            ],
+            "python": "${command:python.interpreterPath}",
+            // Set to true to debug third-party library code
+            "justMyCode": false,
+        },
+        {
+            "name": "tap-dataverse aboot",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tap_dataverse.tap",
+            "args": [
+                "--about"
+            ],
             "python": "${command:python.interpreterPath}",
             // Set to true to debug third-party library code
             "justMyCode": false,
         },
         {
             "name": "tap-dataverse env",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "tap_dataverse.tap",
-            "args": ["--config", "ENV"],
+            "args": [
+                "--config",
+                "ENV"
+            ],
+            "env": {
+                "TAP_DATAVERSE_API_URL": "",
+                "TAP_DATAVERSE_RESOURCE": ""
+            },
             "python": "${command:python.interpreterPath}",
             // Set to true to debug third-party library code
             "justMyCode": false,
