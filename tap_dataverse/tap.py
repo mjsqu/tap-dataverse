@@ -9,7 +9,7 @@ from singer_sdk import typing as th  # JSON schema typing helpers
 
 from tap_dataverse.streams import DataverseTableStream
 from tap_dataverse.client import DataverseStream
-from tap_dataverse.utils import attribute_to_properties
+from tap_dataverse.utils import attribute_type_to_jsonschema_type, sql_attribute_name
 
 
 class TapDataverse(Tap):
@@ -54,6 +54,20 @@ class TapDataverse(Tap):
             th.StringType,
             default="9.2",
             description="The API version found in the /api/data/v{x.y} of URLs",
+        ),
+        th.Property(
+            "sql_attribute_names",
+            th.BooleanType,
+            default=False,
+            description="Uses the Snowflake column name rules to translate any"
+            "characters outside the standard to an underscore. Particularly helpful"
+            "when annotations are turned on",
+        ),
+        th.Property(
+            "annotations",
+            th.BooleanType,
+            default=False,
+            description="Turns on annotations",
         ),
     )
 
@@ -140,7 +154,7 @@ class TapDataverse(Tap):
             properties = th.PropertiesList()
 
             for attribute in attributes:
-                for property in attribute_to_properties(attribute):
+                for property in self.attribute_to_properties(attribute):
                     properties.append(property)
 
             # Repoint the discovery stream to find the EntitySetName required in the url
@@ -168,6 +182,101 @@ class TapDataverse(Tap):
             discovered_streams.append(discovered_stream)
 
         return discovered_streams
+    
+    def annotation(self, original_annotation: str):
+        if self.config.get('sql_attribute_names'):
+            return sql_attribute_name(original_annotation)
+        else:
+            return original_annotation
+    
+    def attribute_to_properties(self, attribute: dict) -> list:
+        """
+        TODO: Handle this:
+        "_owningbusinessunit_value@OData.Community.Display.V1.FormattedValue": "ipmhadev",
+        "_owningbusinessunit_value@Microsoft.Dynamics.CRM.associatednavigationproperty": "owningbusinessunit",
+        "_owningbusinessunit_value@Microsoft.Dynamics.CRM.lookuplogicalname": "businessunit",
+        """
+        """
+        Special cases:
+            - Money - has an extra 'base' column
+            - UniqueIdentifier - is a uuid type
+        """
+
+        FORMATTED = [
+            "BigInt",
+            "DateTime",
+            "Decimal",
+            "Double",
+            "Integer",
+            "Money",
+            "Picklist",
+            "State",
+            "Status",
+        ]
+        FORMATTED_NAV_LKUP = ["Lookup", "Owner"]
+
+        properties = []
+
+        if attribute["AttributeType"] in FORMATTED:
+            base_property = th.Property(
+                attribute["LogicalName"],
+                attribute_type_to_jsonschema_type(attribute["AttributeType"])
+            )
+
+            properties.append(base_property)
+
+            formatted_property = th.Property(
+                f"""{attribute["LogicalName"]}{self.annotation("@OData.Community.Display.V1.FormattedValue")}""",
+                th.StringType,
+            )
+            properties.append(formatted_property)
+
+            return properties
+
+        elif attribute["AttributeType"] in FORMATTED_NAV_LKUP:
+            modified_name = f"""_{attribute["LogicalName"]}_value"""
+            """
+            Sample: 
+                "_ownerid_value@OData.Community.Display.V1.FormattedValue": "sa_BIDWScheduling #",
+                "_ownerid_value@Microsoft.Dynamics.CRM.associatednavigationproperty": "ownerid",
+                "_ownerid_value@Microsoft.Dynamics.CRM.lookuplogicalname": "systemuser",
+                "_ownerid_value": "0ae8c9a0-923b-ed11-bba3-0022481563ba",
+            """
+            
+            properties.append(th.Property(
+                modified_name,
+                th.UUIDType,
+            ))
+
+            # If sql_attribute_names is set, these names should be cleaned up
+            # this should be paired with post_process in the DataverseTableStream
+            properties.append(th.Property(
+                f"""{modified_name}{self.annotation("@OData.Community.Display.V1.FormattedValue")}""",
+                th.StringType,
+            ))
+            properties.append(th.Property(
+                f"""{modified_name}{self.annotation("@Microsoft.Dynamics.CRM.associatednavigationproperty")}""",
+                th.StringType,
+            ))
+            properties.append(th.Property(
+                f"""{modified_name}{self.annotation("@Microsoft.Dynamics.CRM.lookuplogicalname")}""",
+                th.StringType,
+            ))
+            return properties
+
+        else:
+            properties.append(th.Property(
+                attribute["LogicalName"],
+                attribute_type_to_jsonschema_type(attribute["AttributeType"])
+            ))
+
+            if attribute["AttributeType"] == "Money":
+                properties.append(th.Property(
+                    f"""{attribute["LogicalName"]}_base""",
+                    attribute_type_to_jsonschema_type(attribute["AttributeType"])
+                ))
+
+            return properties
 
 
 if __name__ == "__main__":

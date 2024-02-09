@@ -13,6 +13,7 @@ from urllib.parse import parse_qsl
 
 from tap_dataverse.client import DataverseBaseStream
 from tap_dataverse.auth import DataverseAuthenticator
+from tap_dataverse.utils import sql_attribute_name
 
 if sys.version_info >= (3, 9):
     import importlib.resources as importlib_resources
@@ -48,7 +49,8 @@ class DataverseTableStream(DataverseBaseStream):
         # TODO: Make configurable
         # TODO: Add default headers
         headers = super().http_headers
-        headers["Prefer"] = 'odata.include-annotations="*"'
+        if self.config.get('annotations'):
+            headers["Prefer"] = 'odata.include-annotations="*"'
         return headers
 
     @property
@@ -105,4 +107,38 @@ class DataverseTableStream(DataverseBaseStream):
         """
         yield from extract_jsonpath(self.records_path, input=response.json())
 
+    def post_process(
+        self,
+        row: dict,
+        context: dict | None = None,  # noqa: ARG002
+    ) -> dict | None:
+        """As needed, append or transform raw data to match expected structure.
 
+        Optional. This method gives developers an opportunity to "clean up" the results
+        prior to returning records to the downstream tap - for instance: cleaning,
+        renaming, or appending properties to the raw record result returned from the
+        API.
+
+        Developers may also return `None` from this method to filter out
+        invalid or not-applicable records from the stream.
+
+        Args:
+            row: Individual record in the stream.
+            context: Stream partition or context dictionary.
+
+        Returns:
+            The resulting record dict, or `None` if the record should be excluded.
+        """
+        if self.config.get('sql_attribute_names'):
+            """
+            SQL identifiers and key words must begin with a letter (a-z, but 
+            also letters with diacritical marks and non-Latin letters) or an 
+            underscore (_). Subsequent characters in an identifier or key word 
+            can be letters, underscores, digits (0-9), or dollar signs ($). Note 
+            that dollar signs are not allowed in identifiers according to the 
+            letter of the SQL standard, so their use might render applications 
+            less portable
+            """
+            return {sql_attribute_name(k):v for k,v in row.items()}
+        else:
+            return row

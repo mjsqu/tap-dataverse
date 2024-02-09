@@ -16,6 +16,7 @@ from singer_sdk.pagination import BaseHATEOASPaginator
 
 from tap_dataverse.auth import DataverseAuthenticator
 from singer_sdk.authenticators import OAuthAuthenticator
+from urllib.parse import parse_qsl
 
 if sys.version_info >= (3, 9):
     import importlib.resources as importlib_resources
@@ -73,7 +74,7 @@ class DataverseBaseStream(RESTStream):
     
     def get_new_paginator(self):
         return DataversePaginator()
-    
+      
 
 class DataverseStream(DataverseBaseStream):
     """Dataverse stream class."""
@@ -96,12 +97,14 @@ class DataverseStream(DataverseBaseStream):
             A dictionary of URL query parameters.
         """
         params: dict = {}
-        if next_page_token:
-            params["page"] = next_page_token
-
         if self.params:
             for k, v in self.params.items():
                 params[k] = v
+        
+        if next_page_token:
+            # Only provide the skiptoken on subsequent requests
+            self.logger.info(next_page_token.query)
+            params = dict(parse_qsl(next_page_token.query))
         
         return params
 
