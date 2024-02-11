@@ -7,16 +7,16 @@ import copy
 from singer_sdk import Tap
 from singer_sdk import typing as th  # JSON schema typing helpers
 
-from tap_dataverse.streams import DataverseTableStream
 from tap_dataverse.client import DataverseStream
-from tap_dataverse.utils import attribute_to_properties
+from tap_dataverse.streams import DataverseTableStream
+from tap_dataverse.utils import attribute_type_to_jsonschema_type, sql_attribute_name
 
 
 class TapDataverse(Tap):
     """Dataverse tap class."""
 
     name = "tap-dataverse"
-    #dynamic_catalog = True
+    dynamic_catalog = True
 
     tap_properties = th.PropertiesList(
         th.Property(
@@ -55,6 +55,20 @@ class TapDataverse(Tap):
             default="9.2",
             description="The API version found in the /api/data/v{x.y} of URLs",
         ),
+        th.Property(
+            "sql_attribute_names",
+            th.BooleanType,
+            default=False,
+            description="Uses the Snowflake column name rules to translate any"
+            "characters outside the standard to an underscore. Particularly helpful"
+            "when annotations are turned on",
+        ),
+        th.Property(
+            "annotations",
+            th.BooleanType,
+            default=False,
+            description="Turns on annotations",
+        ),
     )
 
     _stream_properties = th.PropertiesList(
@@ -65,9 +79,6 @@ class TapDataverse(Tap):
             description="the path appended to the `api_url`. Stream-level path will "
             "overwrite top-level path",
         ),
-        # TODO: Instead of generic "params" - add select/count/filter etc.
-        # TODO: Instead of generic "headers" - check what can be added to the Dataverse API
-        # TODO: Find out how to infer the primary key from the EntityDetails response
         th.Property(
             "replication_key",
             th.StringType,
@@ -119,20 +130,21 @@ class TapDataverse(Tap):
         discovered_streams = []
         streams = self.config["streams"]
 
-        # TODO: Refactor into a separate function
         for stream in streams:
             logical_name = stream.get("path")
             endpoint_root = f"/EntityDefinitions(LogicalName='{logical_name}')"
             discovery_stream = DataverseStream(
                 tap=self,
                 name="discovery",
-                schema=th.PropertiesList(  # type: ignore
+                schema=th.PropertiesList(
                     th.Property("LogicalName", th.IntegerType),
                     th.Property("AttributeType", th.StringType),
                 ).to_dict(),
                 path=f"{endpoint_root}/Attributes",
-                params={"$select": "LogicalName,AttributeType"},
             )
+
+            discovery_stream.params = {"$select": "LogicalName,AttributeType,IsPrimaryId"}
+
             self.logger.info(discovery_stream.get_starting_replication_key_value(None))
 
             attributes = discovery_stream.get_records(context=None)
@@ -140,8 +152,8 @@ class TapDataverse(Tap):
             properties = th.PropertiesList()
 
             for attribute in attributes:
-                for property in attribute_to_properties(attribute):
-                    properties.append(property)
+                for stream_property in self.attribute_to_properties(attribute):
+                    properties.append(stream_property)
 
             # Repoint the discovery stream to find the EntitySetName required in the url
             # which accesses the table
@@ -154,20 +166,117 @@ class TapDataverse(Tap):
             for entity_definition in entity_definitions:
                 entity_set_name = entity_definition["EntitySetName"]
 
+            stream["name"] = logical_name
+
             discovered_stream = DataverseTableStream(
                 tap=self,
-                name=logical_name,
-                path=f"/{entity_set_name}",
+                stream_config=stream,
+                entity_set_name=entity_set_name,
                 schema=properties.to_dict(),
-                start_date=stream.get("start_date", self.config.get("start_date", "")),
-                replication_key=stream.get(
-                    "replication_key", self.config.get("replication_key", "")
-                ),
             )
 
             discovered_streams.append(discovered_stream)
 
         return discovered_streams
+
+    def annotation(self, original_annotation: str) -> str:
+        """Get the annotation value.
+
+        Checks config for sql_attribute_names and reformats as required
+        """
+        if self.config.get("sql_attribute_names"):
+            original_annotation = sql_attribute_name(original_annotation)
+
+        return original_annotation
+
+    def attribute_to_properties(self, attribute: dict) -> list:
+        """Converts Dataverse attributes into singer schema properties."""
+        """
+        {attr_name}@OData.Community.Display.V1.FormattedValue
+        """
+        formatted = [
+            "BigInt",
+            "DateTime",
+            "Decimal",
+            "Double",
+            "Integer",
+            "Money",
+            "Picklist",
+            "State",
+            "Status",
+        ]
+        """
+        {attr_name}@OData.Community.Display.V1.FormattedValue
+        {attr_name}@Microsoft.Dynamics.CRM.associatednavigationproperty
+        {attr_name}@Microsoft.Dynamics.CRM.lookuplogicalname
+        """
+        formatted_nav_lkup = ["Lookup", "Owner"]
+
+        properties = []
+
+        if attribute["AttributeType"] in formatted:
+            base_property = th.Property(
+                attribute["LogicalName"],
+                attribute_type_to_jsonschema_type(attribute["AttributeType"]),
+            )
+
+            properties.append(base_property)
+
+            formatted_property = th.Property(
+                f"""{attribute["LogicalName"]}{self.annotation("@OData.Community.Display.V1.FormattedValue")}""",
+                th.StringType,
+            )
+            properties.append(formatted_property)
+
+        elif attribute["AttributeType"] in formatted_nav_lkup:
+            modified_name = f"""_{attribute["LogicalName"]}_value"""
+
+            properties.append(
+                th.Property(
+                    modified_name,
+                    th.UUIDType,
+                )
+            )
+
+            # If sql_attribute_names is set, these names should be cleaned up
+            # this should be paired with post_process in the DataverseTableStream
+            properties.append(
+                th.Property(
+                    f"""{modified_name}{self.annotation("@OData.Community.Display.V1.FormattedValue")}""",
+                    th.StringType,
+                )
+            )
+            properties.append(
+                th.Property(
+                    f"""{modified_name}{self.annotation("@Microsoft.Dynamics.CRM.associatednavigationproperty")}""",
+                    th.StringType,
+                )
+            )
+            properties.append(
+                th.Property(
+                    f"""{modified_name}{self.annotation("@Microsoft.Dynamics.CRM.lookuplogicalname")}""",
+                    th.StringType,
+                )
+            )
+
+        else:
+            properties.append(
+                th.Property(
+                    attribute["LogicalName"],
+                    attribute_type_to_jsonschema_type(attribute["AttributeType"]),
+                )
+            )
+
+            # The Money type has an extra attribute suffixed with _base.
+            if attribute["AttributeType"] == "Money":
+                properties.append(
+                    th.Property(
+                        f"""{attribute["LogicalName"]}_base""",
+                        attribute_type_to_jsonschema_type(attribute["AttributeType"]),
+                    )
+                )
+
+        return properties
 
 
 if __name__ == "__main__":

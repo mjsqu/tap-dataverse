@@ -1,9 +1,21 @@
-from singer_sdk import typing as th  # JSON schema typing helpers
-from singer_sdk.typing import JSONTypeHelper
-from typing import Any, Optional
+"""Utilities module for TapDataverse."""
+from __future__ import annotations
 
-def attribute_type_to_jsonschema_type(attribute_type: str):
-    """
+from singer_sdk import typing as th  # JSON schema typing helpers
+
+
+def attribute_type_to_jsonschema_type(
+    attribute_type: str,
+) -> (
+    th.BooleanType
+    | th.StringType
+    | th.DateTimeType
+    | th.NumberType
+    | th.IntegerType
+    | th.UUIDType
+):
+    """Convert Dataverse data type to Singer type.
+
     https://learn.microsoft.com/en-us/power-apps/developer/data-platform/webapi/reference/attributetypecode?view=dataverse-latest
     Name	Value	Description
     Boolean	0	A Boolean attribute.
@@ -55,88 +67,9 @@ def attribute_type_to_jsonschema_type(attribute_type: str):
     return mapping.get(attribute_type, th.StringType)
 
 
-def attribute_to_properties(attribute: dict) -> list:
+def sql_attribute_name(name: str) -> str:
+    """Reformatting function for annotations.
+
+    Reformats attribute names during discovery and in stream.post_process
     """
-    TODO: Handle this:
-    "_owningbusinessunit_value@OData.Community.Display.V1.FormattedValue": "ipmhadev",
-    "_owningbusinessunit_value@Microsoft.Dynamics.CRM.associatednavigationproperty": "owningbusinessunit",
-    "_owningbusinessunit_value@Microsoft.Dynamics.CRM.lookuplogicalname": "businessunit",
-    """
-    """
-    Special cases:
-        - Money - has an extra 'base' column
-        - UniqueIdentifier - is a uuid type
-    """
-
-    FORMATTED = [
-        "BigInt",
-        "DateTime",
-        "Decimal",
-        "Double",
-        "Integer",
-        "Money",
-        "Picklist",
-        "State",
-        "Status",
-    ]
-    FORMATTED_NAV_LKUP = ["Lookup", "Owner"]
-
-    properties = []
-
-    if attribute["AttributeType"] in FORMATTED:
-        base_property = th.Property(
-            attribute["LogicalName"],
-            attribute_type_to_jsonschema_type(attribute["AttributeType"])
-        )
-
-        properties.append(base_property)
-
-        formatted_property = th.Property(
-            f"""{attribute["LogicalName"]}@OData.Community.Display.V1.FormattedValue""",
-            th.StringType,
-        )
-        properties.append(formatted_property)
-
-        return properties
-
-    elif attribute["AttributeType"] in FORMATTED_NAV_LKUP:
-        modified_name = f"""_{attribute["LogicalName"]}_value"""
-        """
-        Sample: 
-            "_ownerid_value@OData.Community.Display.V1.FormattedValue": "sa_BIDWScheduling #",
-            "_ownerid_value@Microsoft.Dynamics.CRM.associatednavigationproperty": "ownerid",
-            "_ownerid_value@Microsoft.Dynamics.CRM.lookuplogicalname": "systemuser",
-            "_ownerid_value": "0ae8c9a0-923b-ed11-bba3-0022481563ba",
-        """
-        
-        properties.append(th.Property(
-            modified_name,
-            th.UUIDType,
-        ))
-        properties.append(th.Property(
-            f"""{modified_name}@OData.Community.Display.V1.FormattedValue""",
-            th.StringType,
-        ))
-        properties.append(th.Property(
-            f"""{modified_name}@Microsoft.Dynamics.CRM.associatednavigationproperty""",
-            th.StringType,
-        ))
-        properties.append(th.Property(
-            f"""{modified_name}@Microsoft.Dynamics.CRM.lookuplogicalname""",
-            th.StringType,
-        ))
-        return properties
-
-    else:
-        properties.append(th.Property(
-            attribute["LogicalName"],
-            attribute_type_to_jsonschema_type(attribute["AttributeType"])
-        ))
-
-        if attribute["AttributeType"] == "Money":
-            properties.append(th.Property(
-                f"""{attribute["LogicalName"]}_base""",
-                attribute_type_to_jsonschema_type(attribute["AttributeType"])
-            ))
-
-        return properties
+    return name.replace("@", "__").replace(".", "_")

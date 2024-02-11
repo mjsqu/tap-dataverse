@@ -1,7 +1,4 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
@@ -15,8 +12,7 @@
                 "--discover"
             ],
             "python": "${command:python.interpreterPath}",
-            // Set to true to debug third-party library code
-            "justMyCode": false,
+            "justMyCode": false
         },
         {
             "name": "tap-dataverse state",
@@ -30,8 +26,7 @@
                 ".secrets/state.json"
             ],
             "python": "${command:python.interpreterPath}",
-            // Set to true to debug third-party library code
-            "justMyCode": false,
+            "justMyCode": false
         },
         {
             "name": "tap-dataverse no state",
@@ -43,8 +38,7 @@
                 ".secrets/config.json"
             ],
             "python": "${command:python.interpreterPath}",
-            // Set to true to debug third-party library code
-            "justMyCode": false,
+            "justMyCode": false
         },
         {
             "name": "tap-dataverse aboot",
@@ -55,8 +49,7 @@
                 "--about"
             ],
             "python": "${command:python.interpreterPath}",
-            // Set to true to debug third-party library code
-            "justMyCode": false,
+            "justMyCode": false
         },
         {
             "name": "tap-dataverse env",
@@ -72,8 +65,7 @@
                 "TAP_DATAVERSE_RESOURCE": ""
             },
             "python": "${command:python.interpreterPath}",
-            // Set to true to debug third-party library code
-            "justMyCode": false,
+            "justMyCode": false
         }
     ]
 }

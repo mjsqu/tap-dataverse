@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from singer_sdk.authenticators import OAuthAuthenticator, SingletonMeta
+
+if TYPE_CHECKING:
+    from tap_dataverse.client import DataverseStream
 
 
 # The SingletonMeta metaclass makes your streams reuse the same authenticator instance.
@@ -28,7 +33,7 @@ class DataverseAuthenticator(OAuthAuthenticator, metaclass=SingletonMeta):
     @classmethod
     def create_for_stream(
         cls,
-        stream,
+        stream: DataverseStream,
         auth_endpoint: str,
         oauth_scopes: str,
     ) -> DataverseAuthenticator:
@@ -43,4 +48,6 @@ class DataverseAuthenticator(OAuthAuthenticator, metaclass=SingletonMeta):
             APIKeyAuthenticator: A new
                 :class:`singer_sdk.authenticators.APIKeyAuthenticator` instance.
         """
-        return cls(stream=stream, auth_endpoint=auth_endpoint, oauth_scopes=oauth_scopes)
+        return cls(
+            stream=stream, auth_endpoint=auth_endpoint, oauth_scopes=oauth_scopes
+        )

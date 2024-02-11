@@ -4,10 +4,6 @@
 
 Built with the [Meltano Tap SDK](https://sdk.meltano.com) for Singer Taps.
 
-<!--
-
-Developer TODO: Update the below as needed to correctly describe the install procedure. For instance, if you do not have a PyPi repo, or if you want users to directly install from your git repo, you can modify this step as appropriate.
-
 ## Installation
 
 Install from GitHub:
@@ -16,21 +12,37 @@ Install from GitHub:
 pipx install git+https://github.com/mjsqu/tap-dataverse.git@main
 ```
 
--->
-
 ## Configuration
 
-### Accepted Config Options
+## Capabilities
 
-<!--
-Developer TODO: Provide a list of config options accepted by the tap.
+* `catalog`
+* `state`
+* `discover`
+* `about`
+* `stream-maps`
+* `schema-flattening`
+* `batch`
 
-This section can be created by copy-pasting the CLI output from:
+## Settings
 
-```
-tap-dataverse --about --format=markdown
-```
--->
+| Setting             | Required | Default | Description |
+|:--------------------|:--------:|:-------:|:------------|
+| client_secret       | True     | None    | The client secret to authenticate against the API service |
+| client_id           | True     | None    | Client (application) ID |
+| tenant_id           | True     | None    | Tenant ID   |
+| start_date          | False    | None    | The earliest record date to sync NOT WORKING see [#4](https://github.com/mjsqu/tap-dataverse/issues/4) |
+| api_url             | True     | None    | The url for the API service |
+| api_version         | False    | 9.2     | The API version found in the /api/data/v{x.y} of URLs |
+| annotations         | False    | False   | Turns on annotations |
+| sql_attribute_names | False    | False   | Uses the Snowflake column name rules to translate any characters outside the standard to an underscore. Particularly helpful when annotations are turned on |
+| streams             | False    | None    | An array of streams, designed for separate paths using thesame base url. |
+| stream_maps         | False    | None    | Config object for stream maps capability. For more information check out [Stream Maps](https://sdk.meltano.com/en/latest/stream_maps.html). |   
+| stream_map_config   | False    | None    | User-defined config values to be used within map expressions. |
+| faker_config        | False    | None    | Config for the [`Faker`](https://faker.readthedocs.io/en/master/) instance variable `fake` used within map expressions. Only applicable if the plugin specifies `faker` as an addtional dependency (through the `singer-sdk` `faker` extra or directly). |
+| flattening_enabled  | False    | None    | 'True' to enable schema flattening and automatically expand nested properties. |
+| flattening_max_depth| False    | None    | The max depth to flatten schemas. |
+| batch_config        | False    | None    |             |
 
 A full list of supported settings and capabilities for this
 tap is available by running:
@@ -47,9 +59,47 @@ environment variable is set either in the terminal context or in the `.env` file
 
 ### Source Authentication and Authorization
 
-<!--
-Developer TODO: If your tap requires special access on the source system, or any special authentication requirements, provide those here.
--->
+This tap uses the client_credentials method of authentication and requires an App Registration and PowerApp setup steps. Note, these steps have been copied from internal documentation with all identifying values removed, please refer to the official Dataverse API documentation for further assistance, or do a PR if you would like to help improve the docs.
+
+#### Azure App Registration
+
+- Login to https://portal.azure.com using your Azure Admin account
+- Open App registrations
+- Click + New registration
+- Enter a Name (e.g. `tap_dataverse_powerplatformaccess`)
+- Select Accounts in this organizational directory only (single tenant)
+- Click Register
+- Click Certificates & secrets
+- Click + New client secret
+- Description - (suggestion Tap-Dataverse Power Platform Client Secret)
+- Select Expiry of choice
+- Click Add and record `client_secret` in config
+- Click Expose an API
+- Click Set
+- Update Application ID URI
+- Enter the OAuth Endpoint
+- Click + Add a scope
+- Enter:
+- Scope name = session:role-any
+- Who can consent? = Admin and users
+- Click Add scope
+- Click Save
+
+#### Configure the PowerApp
+- Login to https://admin.powerplatform.microsoft.com
+- Click Environments
+- Click Data Provider environment
+- Click S2S apps See all
+- Click + New app user
+- Click + Add an app
+- Select `tap_dataverse_powerplatformaccess` or the name selected for the App Registration earlier
+- Click Add
+- Enter: Business unit from the PowerPlatform developer settings url e.g. from https://<my-business-unit>.api.crm6.dynamics.com the business unit value comes before .api.crm in the url
+
+- Once you have completed all these steps, you should have:
+- `client_id` - GUID
+- `tenant_id` - GUID <> client_id
+- `client_secret`
 
 ## Usage
 
