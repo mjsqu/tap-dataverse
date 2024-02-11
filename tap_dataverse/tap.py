@@ -143,7 +143,7 @@ class TapDataverse(Tap):
                 path=f"{endpoint_root}/Attributes",
             )
 
-            discovery_stream.params = {"$select": "LogicalName,AttributeType"}
+            discovery_stream.params = {"$select": "LogicalName,AttributeType,IsPrimaryId"}
 
             self.logger.info(discovery_stream.get_starting_replication_key_value(None))
 
