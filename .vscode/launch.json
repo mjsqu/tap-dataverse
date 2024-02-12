@@ -23,7 +23,9 @@
                 "--config",
                 ".secrets/config.json",
                 "--state",
-                ".secrets/state.json"
+                ".secrets/state.json",
+                ">",
+                "/dev/null"
             ],
             "python": "${command:python.interpreterPath}",
             "justMyCode": false
