@@ -96,9 +96,10 @@ class DataverseTableStream(DataverseStream):
 
         params: dict = {}
 
-        if self.replication_key and last_run_date:
+        if self.replication_key:
             params["$orderby"] = f"{self.replication_key} asc"
-            params["$filter"] = f"{self.replication_key} ge {last_run_date}"
+            if last_run_date:
+                params["$filter"] = f"{self.replication_key} ge {last_run_date}"
 
         if next_page_token:
             # Only provide the skiptoken on subsequent requests
