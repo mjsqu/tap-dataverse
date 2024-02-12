@@ -45,6 +45,8 @@ class DataverseTableStream(DataverseStream):
         self.replication_key = stream_config.get(
             "replication_key", tap.config.get("replication_key", "")
         )
+        
+        self.is_sorted = True
 
     @property
     def http_headers(self) -> dict:
