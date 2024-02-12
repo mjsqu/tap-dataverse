@@ -150,10 +150,13 @@ class TapDataverse(Tap):
             attributes = discovery_stream.get_records(context=None)
 
             properties = th.PropertiesList()
+            primary_keys = []
 
             for attribute in attributes:
                 for stream_property in self.attribute_to_properties(attribute):
                     properties.append(stream_property)
+                if attribute['IsPrimaryId']:
+                    primary_keys.append(attribute['LogicalName'])
 
             # Repoint the discovery stream to find the EntitySetName required in the url
             # which accesses the table
@@ -174,6 +177,8 @@ class TapDataverse(Tap):
                 entity_set_name=entity_set_name,
                 schema=properties.to_dict(),
             )
+
+            discovered_stream.primary_keys = primary_keys
 
             discovered_streams.append(discovered_stream)
 

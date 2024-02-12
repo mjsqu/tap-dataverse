@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Iterable
 from urllib.parse import parse_qsl
 
 from singer_sdk.helpers.jsonpath import extract_jsonpath
+from singer_sdk.streams.core import REPLICATION_INCREMENTAL
 
 from tap_dataverse.auth import DataverseAuthenticator
 from tap_dataverse.client import DataverseStream
@@ -45,6 +46,19 @@ class DataverseTableStream(DataverseStream):
         self.replication_key = stream_config.get(
             "replication_key", tap.config.get("replication_key", "")
         )
+        
+    @property
+    def is_sorted(self) -> bool:
+        """Expect stream to be sorted.
+
+        When `True`, incremental streams will attempt to resume if unexpectedly
+        interrupted.
+
+        Returns:
+            `True` if stream is sorted. Defaults to `False`.
+        """
+        # Set is sorted based on INCREMENTAL stream replication type
+        return self.replication_method == REPLICATION_INCREMENTAL
 
     @property
     def http_headers(self) -> dict:
