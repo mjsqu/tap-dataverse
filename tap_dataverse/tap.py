@@ -143,7 +143,9 @@ class TapDataverse(Tap):
                 path=f"{endpoint_root}/Attributes",
             )
 
-            discovery_stream.params = {"$select": "LogicalName,AttributeType,IsPrimaryId"}
+            discovery_stream.params = {
+                "$select": "LogicalName,AttributeType,IsPrimaryId,Description"
+            }
 
             self.logger.info(discovery_stream.get_starting_replication_key_value(None))
 
@@ -155,8 +157,8 @@ class TapDataverse(Tap):
             for attribute in attributes:
                 for stream_property in self.attribute_to_properties(attribute):
                     properties.append(stream_property)
-                if attribute['IsPrimaryId']:
-                    primary_keys.append(attribute['LogicalName'])
+                if attribute["IsPrimaryId"]:
+                    primary_keys.append(attribute["LogicalName"])
 
             # Repoint the discovery stream to find the EntitySetName required in the url
             # which accesses the table
@@ -219,10 +221,17 @@ class TapDataverse(Tap):
 
         properties = []
 
+        def get_label(attribute):
+            try:
+                return attribute["Description"]["UserLocalizedLabel"]["Label"]
+            except (KeyError, TypeError):
+                return None
+
         if attribute["AttributeType"] in formatted:
             base_property = th.Property(
                 attribute["LogicalName"],
                 attribute_type_to_jsonschema_type(attribute["AttributeType"]),
+                description=get_label(attribute),
             )
 
             properties.append(base_property)
@@ -230,6 +239,7 @@ class TapDataverse(Tap):
             formatted_property = th.Property(
                 f"""{attribute["LogicalName"]}{self.annotation("@OData.Community.Display.V1.FormattedValue")}""",
                 th.StringType,
+                description=get_label(attribute),
             )
             properties.append(formatted_property)
 
@@ -240,6 +250,7 @@ class TapDataverse(Tap):
                 th.Property(
                     modified_name,
                     th.UUIDType,
+                    description=get_label(attribute),
                 )
             )
 
@@ -249,18 +260,21 @@ class TapDataverse(Tap):
                 th.Property(
                     f"""{modified_name}{self.annotation("@OData.Community.Display.V1.FormattedValue")}""",
                     th.StringType,
+                    description=get_label(attribute),
                 )
             )
             properties.append(
                 th.Property(
                     f"""{modified_name}{self.annotation("@Microsoft.Dynamics.CRM.associatednavigationproperty")}""",
                     th.StringType,
+                    description=get_label(attribute),
                 )
             )
             properties.append(
                 th.Property(
                     f"""{modified_name}{self.annotation("@Microsoft.Dynamics.CRM.lookuplogicalname")}""",
                     th.StringType,
+                    description=get_label(attribute),
                 )
             )
 
@@ -269,6 +283,7 @@ class TapDataverse(Tap):
                 th.Property(
                     attribute["LogicalName"],
                     attribute_type_to_jsonschema_type(attribute["AttributeType"]),
+                    description=get_label(attribute),
                 )
             )
 
@@ -278,6 +293,7 @@ class TapDataverse(Tap):
                     th.Property(
                         f"""{attribute["LogicalName"]}_base""",
                         attribute_type_to_jsonschema_type(attribute["AttributeType"]),
+                        description=get_label(attribute),
                     )
                 )
 
